@@ -61,52 +61,77 @@ This experiment demonstrates **inter-process synchronization and data transfer**
 ##  SystemVerilog Code
 
 ### Design File — `register_memory.sv`
-```systemverilog
-//=====================================================
-// Design: Register Memory Model
-//=====================================================
-module register_memory #(parameter WIDTH = 8, DEPTH = 8) ();
-
-    // Register memory declaration
-    logic [WIDTH-1:0] mem [0:DEPTH-1];
-
-    // Write task
-  
-
-    // Read task
-    
-endmodule
 ```
-### Testbench File
+
+module reg_memory_mailbox;
+
+  typedef struct {
+    int addr;
+    int data;
+    bit wr; // 1 = write, 0 = read
+  } packet_t;
+
+  mailbox mbox = new();
+
+  int memory [0:15];
+
+
 ```
-//=====================================================
-// Testbench: Producer-Consumer using Mailbox
-//=====================================================
-module register_memory_tb;
+---
+Testbench: Producer-Consumer using Mailbox
+---
+```
+  initial begin
+    fork
+      producer();
+      consumer();
+    join
+  end
 
-    // Parameter definitions
-    parameter WIDTH = 8;
-    parameter DEPTH = 8;
-
-    // Mailbox declaration
-    mailbox mbx = new();
-
-    // Instantiate Register Memory
-    register_memory #(WIDTH, DEPTH) regmem();
-
-    
-        fork
-            producer();
-            consumer();
-        join_any
-        #50 $finish;
+  task producer();
+    packet_t pkt;
+    int i;
+    $display("\n=== PRODUCER STARTED ===");
+    for (i = 0; i < 5; i++) begin
+      pkt.addr = $urandom_range(0, 15);
+      pkt.data = $urandom_range(0, 255);
+      pkt.wr   = $urandom_range(0, 1);
+      mbox.put(pkt);
+      $display("[%0t] PRODUCER: Sent packet -> Addr=%0d Data=%0d WR=%0b",
+               $time, pkt.addr, pkt.data, pkt.wr);
+      #5;
     end
+  endtask
+
+  task consumer();
+    packet_t rcv;
+    int rd_data;
+    $display("\n=== CONSUMER STARTED ===");
+    forever begin
+      mbox.get(rcv);
+      if (rcv.wr) begin
+        memory[rcv.addr] = rcv.data;
+        $display("[%0t] CONSUMER: WRITE -> Addr=%0d Data=%0d",
+                 $time, rcv.addr, rcv.data);
+      end 
+      else begin
+        rd_data = memory[rcv.addr];
+        $display("[%0t] CONSUMER: READ  -> Addr=%0d Data=%0d",
+                 $time, rcv.addr, rd_data);
+      end
+      #3;
+    end
+  endtask
 
 endmodule
+
+   
+    
 ```
 ### Simulation Output
 
------ Paste the Screenshot of the output here 
+<img width="1920" height="966" alt="image" src="https://github.com/user-attachments/assets/373d6d9c-6f32-477c-91d3-93bda9c17f67" />
+
 
 
 ### Result
